@@ -5,6 +5,7 @@ import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,8 +21,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -34,6 +37,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ModalBottomSheetDefaults
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.OutlinedTextField
@@ -48,6 +53,7 @@ import androidx.compose.material3.adaptive.layout.AnimatedPane
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffold
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
 import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.WindowSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
@@ -62,6 +68,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
@@ -71,7 +78,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import org.intellij.lang.annotations.JdkConstants.HorizontalAlignment
 import se.kr4u.todo.ui.theme.ToDoTheme
 
 class ToDoItem (val id: Int) {
@@ -85,9 +94,7 @@ class ToDoItem (val id: Int) {
 
 class MainActivity : ComponentActivity() {
 
-    private var floatingButtonVisible = mutableIntStateOf(View.VISIBLE)
-
-    private val todoViewModel: ToDoViewModel by viewModels {
+    private val todoViewModel: IToDoViewModel by viewModels {
         ToDoViewModelFactory((application as ToDoApplication).repository)
     }
 
@@ -103,94 +110,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    ToDoApp(todoViewModel, windowSizeClass)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun ToDoCompose(fullscreen: Boolean, onAdd: (String, String) -> Unit, onCancel: () -> Unit) {
-    var titleText by rememberSaveable(stateSaver = TextFieldValue.Saver) {
-        mutableStateOf(TextFieldValue(""))
-    }
-    var detailsText by rememberSaveable(stateSaver = TextFieldValue.Saver) {
-        mutableStateOf(TextFieldValue(""))
-    }
-
-    ConstraintLayout (modifier = Modifier.fillMaxWidth(1f)) {
-        val (header, cancel, title, details, buttons, add) = createRefs()
-        Text(
-            modifier = Modifier.constrainAs(header) {
-                centerHorizontallyTo(parent)
-                top.linkTo(parent.top, margin = 16.dp)
-            },
-            text = "New ToDo Item",
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.primary)
-        if (fullscreen) {
-            IconButton(onClick = onCancel,
-                modifier = Modifier.constrainAs(cancel) {
-                    top.linkTo(parent.top, margin = 5.dp)
-                    start.linkTo(parent.start, margin = 5.dp)
-                }) {
-                Icon(Icons.Default.Close, contentDescription = "Close")
-            }
-            TextButton(
-                onClick = {
-                    onAdd(titleText.text, detailsText.text)
-                },
-                modifier = Modifier.constrainAs(add) {
-                    top.linkTo(parent.top, margin = 5.dp)
-                    end.linkTo(parent.end, margin = 5.dp)
-                }) {
-                Text(text = "Add")
-            }
-        }
-        OutlinedTextField(
-            modifier = Modifier.constrainAs(title) {
-                top.linkTo(header.bottom, margin = 16.dp)
-                start.linkTo(parent.start, margin = 16.dp)
-                end.linkTo(parent.end, margin = 16.dp)
-                centerHorizontallyTo(parent)
-            },
-            value = titleText,
-            onValueChange = { titleText = it },
-            label = { Text("Title") },
-            singleLine = true,
-            textStyle = MaterialTheme.typography.bodySmall)
-        OutlinedTextField(
-            modifier = Modifier.constrainAs(details) {
-                top.linkTo(title.bottom, margin = 16.dp)
-                start.linkTo(parent.start, margin = 16.dp)
-                end.linkTo(parent.end, margin = 16.dp)
-                centerHorizontallyTo(parent)
-            },
-            value = detailsText,
-            onValueChange = { detailsText = it },
-            label = { Text("Details") },
-            textStyle = MaterialTheme.typography.bodySmall,
-            minLines = 5)
-        if (!fullscreen) {
-            Row(modifier = Modifier.constrainAs(buttons) {
-                top.linkTo(details.bottom, margin = 16.dp)
-                bottom.linkTo(parent.bottom, margin = 10.dp)
-                end.linkTo(parent.end, margin = 10.dp)
-            }) {
-                TextButton(
-                    onClick = {
-                        onCancel()
-                    }
-                ) {
-                    Text("Cancel")
-                }
-                TextButton(
-                    onClick = {
-                        onAdd(titleText.text, detailsText.text)
-                    }
-                ) {
-                    Text("Add")
+                    ToDoApp(todoViewModel, windowSizeClass.widthSizeClass)
                 }
             }
         }
@@ -199,15 +119,15 @@ fun ToDoCompose(fullscreen: Boolean, onAdd: (String, String) -> Unit, onCancel: 
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun ToDoApp(toDoViewModel: ToDoViewModel, toDoWindowSizeClass: WindowSizeClass) {
+fun ToDoApp(toDoViewModel: IToDoViewModel, widthClass: WindowWidthSizeClass) {
     val fabVisible = rememberSaveable { mutableIntStateOf(View.VISIBLE) }
     val addItem = rememberSaveable { mutableStateOf(false) }
     val title = stringResource(id = R.string.app_name)
-    val useNavRail = when (toDoWindowSizeClass.widthSizeClass) {
+    val useNavRail = when (widthClass) {
         WindowWidthSizeClass.Compact -> false
         else -> true
     }
-    val fullScreenDialog = when (toDoWindowSizeClass.widthSizeClass) {
+    val fullScreenDialog = when (widthClass) {
         WindowWidthSizeClass.Compact -> true
         else -> false
     }
@@ -267,9 +187,9 @@ fun ToDoApp(toDoViewModel: ToDoViewModel, toDoWindowSizeClass: WindowSizeClass) 
 }
 
 @Composable
-fun ToDoCreateCompact(addItem: MutableState<Boolean>, toDoViewModel: ToDoViewModel) {
+fun ToDoCreateCompact(addItem: MutableState<Boolean>, toDoViewModel: IToDoViewModel) {
     if (addItem.value) {
-        ToDoCreateDialog(true, toDoViewModel) {
+        ToDoCreateCompactDialog(true, toDoViewModel) {
             addItem.value = false
         }
     }
@@ -277,7 +197,7 @@ fun ToDoCreateCompact(addItem: MutableState<Boolean>, toDoViewModel: ToDoViewMod
 
 
 @Composable
-fun ToDoCreateNotCompact(addItem: MutableState<Boolean>, toDoViewModel: ToDoViewModel) {
+fun ToDoCreateNotCompact(addItem: MutableState<Boolean>, toDoViewModel: IToDoViewModel) {
     if (addItem.value) {
         ToDoCreateDialog(false, toDoViewModel) {
             addItem.value = false
@@ -285,14 +205,57 @@ fun ToDoCreateNotCompact(addItem: MutableState<Boolean>, toDoViewModel: ToDoView
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ToDoCreateDialog(
-    fullscreen: Boolean,
-    toDoViewModel: ToDoViewModel,
+fun ToDoCreateCompactDialog(
+    fullscreen: Boolean = true,
+    toDoViewModel: IToDoViewModel,
     onDismissRequest: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
-    val content = @androidx.compose.runtime.Composable {
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true
+    )
+    val content = @Composable {
+        ToDoCompose(
+            fullscreen = fullscreen,
+            onAdd = { title, details ->
+                run {
+                    scope.launch {
+                        sheetState.hide()
+                    }.invokeOnCompletion {
+                        if (title.isNotEmpty()) {
+                            toDoViewModel.insert(ToDo(0, title, details))
+                        }
+                        onDismissRequest()
+                    }
+                }
+            },
+            onCancel = {
+                scope.launch {
+                    sheetState.hide()
+                }.invokeOnCompletion {
+                    onDismissRequest()
+                }
+            })
+    }
+    ModalBottomSheet(
+        onDismissRequest = onDismissRequest,
+        sheetState = sheetState,
+        modifier = Modifier.fillMaxHeight()
+    ) {
+            content()
+    }
+}
+
+@Composable
+fun ToDoCreateDialog(
+    fullscreen: Boolean,
+    toDoViewModel: IToDoViewModel,
+    onDismissRequest: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    val content = @Composable {
         ToDoCompose(fullscreen = fullscreen,
             onAdd = {title, details -> run {
                     scope.launch { onDismissRequest() }.invokeOnCompletion {
@@ -324,6 +287,89 @@ fun ToDoCreateDialog(
                 shape = RoundedCornerShape(16.dp)
             ) {
                 content()
+            }
+        }
+    }
+}
+
+@Composable
+fun ToDoCompose(fullscreen: Boolean, onAdd: (String, String) -> Unit, onCancel: () -> Unit) {
+    var titleText by rememberSaveable(stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(""))
+    }
+    var detailsText by rememberSaveable(stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(""))
+    }
+    val modifier = Modifier.fillMaxWidth(1f)
+    ConstraintLayout (modifier = when (fullscreen) {
+        true -> modifier.padding(bottom = 16.dp)
+        false -> modifier.fillMaxWidth(1f)
+    }) {
+        val (header, cancel, body, add) = createRefs()
+        Text(
+            modifier = Modifier.constrainAs(header) {
+                centerHorizontallyTo(parent)
+                top.linkTo(parent.top, margin = 16.dp)
+            },
+            text = "New ToDo Item",
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.primary)
+        if (fullscreen) {
+            IconButton(onClick = onCancel,
+                modifier = Modifier.constrainAs(cancel) {
+                    top.linkTo(parent.top, margin = 5.dp)
+                    start.linkTo(parent.start, margin = 5.dp)
+                }) {
+                Icon(Icons.Default.Close, contentDescription = "Close")
+            }
+            TextButton(
+                onClick = {
+                    onAdd(titleText.text, detailsText.text)
+                },
+                modifier = Modifier.constrainAs(add) {
+                    top.linkTo(parent.top, margin = 5.dp)
+                    end.linkTo(parent.end, margin = 5.dp)
+                }) {
+                Text(text = "Add")
+            }
+        }
+        Column(
+            modifier = Modifier
+                .padding(16.dp)
+                .constrainAs(body) {
+                    top.linkTo(header.bottom, margin = 16.dp)
+                    start.linkTo(parent.start, margin = 16.dp)
+                    end.linkTo(parent.end, margin = 16.dp)
+                    centerHorizontallyTo(parent)
+                }
+                .verticalScroll(rememberScrollState())
+        ) {
+            OutlinedTextField(
+                value = titleText,
+                onValueChange = { titleText = it },
+                label = { Text("Title") },
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodySmall)
+            OutlinedTextField(
+                value = detailsText,
+                onValueChange = { detailsText = it },
+                label = { Text("Details") },
+                textStyle = MaterialTheme.typography.bodySmall,
+                minLines = 3,
+                maxLines = 10)
+            if (!fullscreen) {
+                Row(modifier = Modifier.align(Alignment.End)) {
+                    TextButton(
+                        onClick = onCancel
+                    ) {
+                        Text("Cancel")
+                    }
+                    TextButton(onClick = {
+                        onAdd(titleText.text, detailsText.text)
+                    }) {
+                        Text("Add")
+                    }
+                }
             }
         }
     }
@@ -404,7 +450,7 @@ fun ToDoItemDetails(todo: ToDo) {
 
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable
-fun ToDoPanes(modifier: Modifier = Modifier, visibleActionButton: MutableIntState = mutableIntStateOf(View.VISIBLE), toDoViewModel: ToDoViewModel) {
+fun ToDoPanes(modifier: Modifier = Modifier, visibleActionButton: MutableIntState = mutableIntStateOf(View.VISIBLE), toDoViewModel: IToDoViewModel) {
     var selectedItem: ToDoItem? by rememberSaveable(stateSaver = ToDoItem.saver) {
         mutableStateOf(null)
     }
@@ -417,7 +463,7 @@ fun ToDoPanes(modifier: Modifier = Modifier, visibleActionButton: MutableIntStat
         visibleActionButton.intValue = View.VISIBLE
     }
 
-    val toDoItems by toDoViewModel.allToDos.collectAsStateWithLifecycle(initialValue = listOf<ToDo>())
+    val toDoItems by toDoViewModel.allToDos.collectAsStateWithLifecycle(initialValue = toDoViewModel.initialToDos)
 
     ToDoTheme {
         ListDetailPaneScaffold(
@@ -475,4 +521,29 @@ fun ToDoItemAddPreview() {
 @Composable
 fun ToDoItemAddPreviewFullscreen() {
     ToDoCompose(fullscreen = true, onAdd = {_, _ -> }, onCancel = {})
+}
+
+@Preview
+@Composable
+fun ToDoCompactDialog() {
+    ToDoCreateCompactDialog(
+        fullscreen = true,
+        toDoViewModel = PreviewToDoViewModel(),
+        onDismissRequest = {})
+}
+
+@Preview
+@Composable
+fun ToDoAppCompact() {
+    ToDoApp(
+        toDoViewModel = PreviewToDoViewModel(),
+        widthClass = WindowWidthSizeClass.Compact)
+}
+
+@Preview(device = "spec:width=1200dp,height=600dp,dpi=120,orientation=landscape")
+@Composable
+fun ToDoAppExpand() {
+    ToDoApp(
+        toDoViewModel = PreviewToDoViewModel(),
+        widthClass = WindowWidthSizeClass.Medium)
 }
